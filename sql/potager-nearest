@@ -1,0 +1,77 @@
+WITH pointA AS (
+			SELECT
+				node.id
+			FROM
+				ways_vertices_pgr node
+				JOIN ways edg ON (node.id = edg.source OR node.id = edg.target)
+			WHERE
+				edg.source != edg.target
+			ORDER BY
+				node.the_geom <-> ST_SetSRID(ST_Point($1,$2),4326)::geography
+			LIMIT 1
+		)
+		SELECT
+			u.id,
+			u.username,
+			uf.commune,
+			(
+				SELECT
+					EXISTS (
+						SELECT
+							*
+						FROM
+							favorite_potagers
+						WHERE
+							user_id = $3
+							AND farmer_id = u.id) LIMIT 1) AS favorite, (
+						SELECT
+							COUNT(*)
+						FROM
+							rel_fruits_users rfu
+						WHERE
+							rfu.user_id = u.id) AS fruitsCount, (
+							SELECT
+								COUNT(*)
+							FROM
+								rel_graines_users rgu
+							WHERE
+								rgu.user_id = u.id) AS grainesCount, (
+								SELECT
+									COUNT(*)
+								FROM
+									rel_legumes_users rlu
+								WHERE
+									rlu.user_id = u.id) AS legumesCount, distance.agg_cost AS distance
+							FROM
+								users u
+							JOIN users_farmer uf ON uf.user_id = u.id AND uf.temporary_disabled = TRUE
+							CROSS JOIN LATERAL (
+								SELECT
+									dijk.agg_cost
+								FROM
+									ways
+									JOIN pgr_dijkstra ('SELECT gid AS id, source, target, length_m AS cost, length_m AS reverse_cost FROM ways',
+										(
+											SELECT
+												*
+											FROM
+												pointA),
+											(
+												SELECT
+													node.id
+												FROM
+													ways_vertices_pgr node
+													JOIN ways edg ON (node.id = edg.source OR node.id = edg.target)
+												WHERE
+													edg.source != edg.target
+												ORDER BY
+													node.the_geom <-> uf.coordonnees::geometry
+												LIMIT 1)) AS dijk ON ways.gid = dijk.edge
+									ORDER BY
+										dijk.path_seq DESC
+									LIMIT 1) AS distance
+							CROSS JOIN muted_potagers mp
+					WHERE
+						u.id <> $3
+						AND distance.agg_cost < 15000
+						AND (mp.user_id = $3 AND mp.farmer_id <> u.id);

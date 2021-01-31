@@ -1,0 +1,41 @@
+{
+  "EmailUniqueness": {
+    "message": "Stu email hè dighjà presu"
+  },
+  "FarmerAlreadyFavorite": {
+    "message": "Questu ortu hè digià in i vostri preferiti"
+  },
+  "FarmerAlreadyMuted": {
+    "message": "Questu ortu hè digià in a vostra lista nera"
+  },
+  "InternalServerError": {
+    "message": "Un errore hè accadutu"
+  },
+  "InvalidToken": {
+    "message": "Un errore hè accadutu durante l'autenticazione"
+  },
+  "NearestAlimentsNotFound": {
+    "message": "Nisun alimentu hè statu trovu"
+  },
+  "NearestPotagersNotFound": {
+    "message": "Nisun ortu hè statu trovu"
+  },
+  "PasswordNotMatched": {
+    "message": "Sta codice ùn hè micca valida"
+  },
+  "PotagerNotFound": {
+    "message": "Stu ortu ùn si pò truvà"
+  },
+  "UserBanned": {
+    "message": "U vostru contu hè statu suspesu per via di u non rispettu di e regule"
+  },
+  "UsernameUniqueness": {
+    "message": "Stu soprannomu hè dighjà pigliatu"
+  },
+  "UserNotFound": {
+    "message": "Questu utilizatore ùn esiste micca"
+  },
+  "UserSuspended": {
+    "message": "U vostru contu hè suspesu finu à"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "UserBanned": {
+    "message": ""
+  },
+  "UserNotFound": {
+    "message": ""
+  },
+  "UserSuspended": {
+    "message": ""
+  },
+  "PasswordNotMatched": {
+    "message": ""
+  },
+  "InternalServerError": {
+    "message": ""
+  }
+}

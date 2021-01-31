@@ -1,0 +1,41 @@
+{
+  "EmailUniqueness": {
+    "message": "Cet email est déjà pris"
+  },
+  "FarmerAlreadyFavorite": {
+    "message": "Ce potager est déjà dans vos favoris"
+  },
+  "FarmerAlreadyMuted": {
+    "message": "Ce potager est déjà dans votre liste noire"
+  },
+  "InternalServerError": {
+    "message": "Une erreur s'est produite"
+  },
+  "InvalidToken": {
+    "message": "Une erreur s'est produite lors de l'authentification"
+  },
+  "NearestAlimentsNotFound": {
+    "message": "Aucun aliment n'a pas été trouvé"
+  },
+  "NearestPotagersNotFound": {
+    "message": "Aucun potager n'a été trouvé"
+  },
+  "PasswordNotMatched": {
+    "message": "Ce mot de passe n'est pas valide"
+  },
+  "PotagerNotFound": {
+    "message": "Ce potager est introuvable"
+  },
+  "UserBanned": {
+    "message": "Votre compte a été suspendu suite au non-respect des règles"
+  },
+  "UsernameUniqueness": {
+    "message": "Ce surnom est déjà pris"
+  },
+  "UserNotFound": {
+    "message": "Cet utilisateur n'existe pas"
+  },
+  "UserSuspended": {
+    "message": "Votre compte est bloqué jusqu'au"
+  }
+}

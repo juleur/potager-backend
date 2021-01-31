@@ -1,0 +1,41 @@
+{
+  "EmailUniqueness": {
+    "message": ""
+  },
+  "FarmerAlreadyFavorite": {
+    "message": ""
+  },
+  "FarmerAlreadyMuted": {
+    "message": ""
+  },
+  "InternalServerError": {
+    "message": ""
+  },
+  "InvalidToken": {
+    "message": ""
+  },
+  "NearestAlimentsNotFound": {
+    "message": ""
+  },
+  "NearestPotagersNotFound": {
+    "message": ""
+  },
+  "PasswordNotMatched": {
+    "message": ""
+  },
+  "PotagerNotFound": {
+    "message": ""
+  },
+  "UserBanned": {
+    "message": ""
+  },
+  "UsernameUniqueness": {
+    "message": ""
+  },
+  "UserNotFound": {
+    "message": ""
+  },
+  "UserSuspended": {
+    "message": ""
+  }
+}

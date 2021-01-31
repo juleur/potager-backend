@@ -1,0 +1,41 @@
+{
+  "EmailUniqueness": {
+    "message": "Mezu elektroniko hau dagoeneko hartuta dago"
+  },
+  "FarmerAlreadyFavorite": {
+    "message": "Baratze hau zure gogokoenetan dago jada"
+  },
+  "FarmerAlreadyMuted": {
+    "message": "Baratze hau zure zerrenda beltzean dago jada"
+  },
+  "InternalServerError": {
+    "message": "akats bat gertatu da"
+  },
+  "InvalidToken": {
+    "message": "Akats bat gertatu da autentifikazioan"
+  },
+  "NearestAlimentsNotFound": {
+    "message": "Ez da janaririk aurkitu"
+  },
+  "NearestPotagersNotFound": {
+    "message": "Ez da baratzerik aurkitu"
+  },
+  "PasswordNotMatched": {
+    "message": "Pasahitz honek ez du balio"
+  },
+  "PotagerNotFound": {
+    "message": "Baratze hau ezin da aurkitu"
+  },
+  "UserBanned": {
+    "message": "Zure kontua eten egin da arauak ez betetzeagatik"
+  },
+  "UsernameUniqueness": {
+    "message": "Ezizen hau dagoeneko hartuta dago"
+  },
+  "UserNotFound": {
+    "message": "Erabiltzaile hau ez da existitzen"
+  },
+  "UserSuspended": {
+    "message": "Zure kontua eten arte"
+  }
+}

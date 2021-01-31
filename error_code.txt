@@ -1,0 +1,6 @@
+StatusUnauthorized
+40 => missing headers
+41 => mauvais credentials
+42 => expiration token
+StatusInternalServerError
+1 => 
