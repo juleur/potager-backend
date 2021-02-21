@@ -140,8 +140,6 @@ func refreshJWT(db *auth.AuthPsql, l10n *loc.Pool) func(c *fiber.Ctx) error {
 
 		refToken := c.Context().Request.Header.Peek("X-Refresh-Token")
 
-		fmt.Printf("refToken: %s\n", string(refToken))
-
 		if len(refToken) != 32 || !token.IsAlphanumeric(refToken) {
 			return c.Status(http.StatusUnauthorized).JSON(&fiber.Map{
 				"error_code": 1,

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"npp_backend/api/middleware"
 	"npp_backend/db/person"
@@ -185,6 +186,7 @@ func removeFavoritePotager(personRepo *person.PersonPsql, l10n *loc.Pool) func(c
 			})
 		}
 		if err := personRepo.DeleteFavoritePotager(c.Context(), userId, farmerId); err != nil {
+			fmt.Println(err)
 			return c.Status(err.StatusCode).JSON(&fiber.Map{
 				"error_code": 1,
 				"message":    l10n.GetContext(lng).Tr(err.TranslKey.String()),

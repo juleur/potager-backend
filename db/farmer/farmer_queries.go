@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
-	"npp_backend/entity/enums"
 	"npp_backend/entity/private"
 	"npp_backend/entity/public"
 	"npp_backend/l10n/translate"
 
 	"github.com/jackc/pgx"
+	"github.com/jackc/pgx/pgtype"
 )
 
 func (fp *FarmerPsql) GetFavoritePotagers(ctx context.Context, userID int) ([]public.FavoritePotager, *private.Error) {
@@ -39,10 +39,10 @@ func (fp *FarmerPsql) GetFavoritePotagers(ctx context.Context, userID int) ([]pu
 	favoritePotagers := []public.FavoritePotager{}
 	for rows.Next() {
 		favoritePotager := public.FavoritePotager{}
-		if err = rows.Scan(&favoritePotager.User.ID,
+		if err = rows.Scan(&favoritePotager.Farmer.ID,
 			&favoritePotager.User.Username,
-			&favoritePotager.User.ImgURL,
-			&favoritePotager.Commune, &favoritePotager.Coordonnees, &favoritePotager.FruitsCount, &favoritePotager.GrainesCount, &favoritePotager.LegumesCount); err != nil {
+			&favoritePotager.Farmer.ImgUrl,
+			&favoritePotager.Farmer.Commune, &favoritePotager.Farmer.Coordonnees, &favoritePotager.FruitsCount, &favoritePotager.GrainesCount, &favoritePotager.LegumesCount); err != nil {
 			return nil, &private.Error{
 				Location:   "db.farmer.GetFavoritePotagers",
 				Line:       46,
@@ -84,7 +84,7 @@ func (fp *FarmerPsql) GetMutedPotagers(ctx context.Context, userID int) ([]publi
 	mutedPotagers := []public.MutedPotager{}
 	for rows.Next() {
 		mutedPotager := public.MutedPotager{}
-		if err = rows.Scan(&mutedPotager.User.ID, &mutedPotager.User.Username, &mutedPotager.User.ImgURL, &mutedPotager.Commune, &mutedPotager.Coordonnees, &mutedPotager.FruitsCount, &mutedPotager.GrainesCount, &mutedPotager.LegumesCount); err != nil {
+		if err = rows.Scan(&mutedPotager.Farmer.ID, &mutedPotager.User.Username, &mutedPotager.Farmer.ImgUrl, &mutedPotager.Farmer.Commune, &mutedPotager.Farmer.Coordonnees, &mutedPotager.FruitsCount, &mutedPotager.GrainesCount, &mutedPotager.LegumesCount); err != nil {
 			return nil, &private.Error{
 				Location:   "db.farmer.GetMutedPotagers",
 				Line:       87,
@@ -101,17 +101,17 @@ func (fp *FarmerPsql) GetMutedPotagers(ctx context.Context, userID int) ([]publi
 
 func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) (*public.Potager, *private.Error) {
 	potager := public.Potager{}
-	user := public.User{}
 	description := &sql.NullString{}
 	err := fp.db.QueryRow(ctx, `
-		SELECT uf.id, u.username, uf.img_url, uf.description, uf.commune, ST_AsGeoJSON(uf.coordonnees)::json->'coordinates' coordonnees
+		SELECT uf.id, u.username, uf.img_url, uf.description, uf.commune, ST_AsGeoJSON(uf.coordonnees)::json->'coordinates' coordonnees,
+		(SELECT EXISTS(SELECT * FROM favorite_potagers WHERE user_id = $2 AND farmer_id = uf.id)) favorite
 		FROM users u
 		JOIN users_farmer uf ON uf.user_id = u.id AND uf.temporary_disabled = FALSE
 		WHERE
 		uf.id = $1
 		AND
 		(SELECT NOT EXISTS(SELECT * FROM muted_potagers WHERE user_id = $2 AND farmer_id = $1))
-	`, farmerID, userID).Scan(&user.ID, &user.Username, &user.ImgURL, description, &user.Commune, &user.Coordonnees)
+	`, farmerID, userID).Scan(&potager.Farmer.ID, &potager.User.Username, &potager.Farmer.ImgUrl, description, &potager.Farmer.Commune, &potager.Farmer.Coordonnees, &potager.Farmer.Favorite)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, &private.Error{
@@ -133,12 +133,11 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 		}
 	}
 	if description.Valid {
-		user.Description = description.String
+		potager.Farmer.Description = description.String
 	}
-	potager.User = user
 	// FRUITS
 	rows, err := fp.db.Query(ctx, `
-		SELECT f.id, f.nom, f.variete, f.systeme_echange, f.prix, f.unite_mesure, f.stock
+		SELECT f.id, f.img_url, f.nom, f.variete, f.systeme_echange, f.prix, f.unite_mesure, f.stock
 		FROM fruits f
 		JOIN rel_fruits_farmers rff ON rff.fruit_id = f.id
 		JOIN users_farmer uf ON uf.id = rff.farmer_id AND uf.temporary_disabled = FALSE
@@ -159,10 +158,11 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 	fruits := []public.Fruit{}
 	for rows.Next() {
 		fruit := public.Fruit{}
-		var alimentSystemEchange *string = new(string)
 		prix := &sql.NullFloat64{}
-		uniteMesure := &sql.NullString{}
-		if err = rows.Scan(&fruit.ID, &fruit.Nom, &fruit.Variete, alimentSystemEchange, prix, uniteMesure, &fruit.Stock); err != nil {
+		uniteMesure := &sql.NullInt64{}
+		systemEchange := &pgtype.Int2Array{}
+		if err = rows.Scan(&fruit.ID, &fruit.ImgUrl, &fruit.Nom, &fruit.Variete, systemEchange, prix, uniteMesure, &fruit.Stock); err != nil {
+			fmt.Println(err)
 			return nil, &private.Error{
 				Location:   "db.farmer.GetPotager",
 				Line:       165,
@@ -172,19 +172,23 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 				StatusCode: http.StatusInternalServerError,
 			}
 		}
+		for _, value := range systemEchange.Elements {
+			fruit.SystemeEchange = append(fruit.SystemeEchange, int(value.Int))
+		}
+
 		if prix.Valid {
 			fruit.Prix = prix.Float64
 		}
 		if uniteMesure.Valid {
-			fruit.UniteMesure = enums.UniteMesure(uniteMesure.String)
+			fruit.UniteMesure = int(uniteMesure.Int64)
 		}
-		fruit.SystemeEchange = ParsePGSystemeEchangeEnumArray(*alimentSystemEchange)
+
 		fruits = append(fruits, fruit)
 	}
 	potager.Fruits = fruits
 	// GRAINES
 	rows, err = fp.db.Query(ctx, `
-		SELECT g.id, g.nom, g.variete, g.systeme_echange, g.prix, g.stock
+		SELECT g.id, g.img_url, g.nom, g.variete, g.systeme_echange, g.prix, g.stock
 		FROM graines g
 		JOIN rel_graines_farmers rgf ON rgf.graine_id = g.id
 		JOIN users_farmer uf ON uf.id = rgf.farmer_id AND uf.temporary_disabled = FALSE
@@ -205,9 +209,9 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 	graines := []public.Graine{}
 	for rows.Next() {
 		graine := public.Graine{}
-		var alimentSystemEchange *string = new(string)
+		systemEchange := &pgtype.Int2Array{}
 		prix := &sql.NullFloat64{}
-		if err = rows.Scan(&graine.ID, &graine.Nom, &graine.Variete, alimentSystemEchange, prix, &graine.Stock); err != nil {
+		if err = rows.Scan(&graine.ID, &graine.ImgUrl, &graine.Nom, &graine.Variete, systemEchange, prix, &graine.Stock); err != nil {
 			return nil, &private.Error{
 				Location:   "db.farmer.GetPotager",
 				Line:       210,
@@ -217,15 +221,20 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 				StatusCode: http.StatusInternalServerError,
 			}
 		}
+		for _, value := range systemEchange.Elements {
+			graine.SystemeEchange = append(graine.SystemeEchange, int(value.Int))
+		}
+
 		if prix.Valid {
 			graine.Prix = prix.Float64
 		}
+
 		graines = append(graines, graine)
 	}
 	potager.Graines = graines
 	// LEGUMES
 	rows, err = fp.db.Query(ctx, `
-		SELECT l.id, l.nom, l.variete, l.systeme_echange, l.prix, l.unite_mesure, l.stock
+		SELECT l.id, l.img_url, l.nom, l.variete, l.systeme_echange, l.prix, l.unite_mesure, l.stock
 		FROM legumes l
 		JOIN rel_legumes_farmers rlf ON rlf.legume_id = l.id
 		JOIN users_farmer uf ON uf.id = rlf.farmer_id AND uf.temporary_disabled = FALSE
@@ -246,10 +255,10 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 	legumes := []public.Legume{}
 	for rows.Next() {
 		legume := public.Legume{}
-		var alimentSystemEchange *string = new(string)
+		systemEchange := &pgtype.Int2Array{}
 		prix := &sql.NullFloat64{}
-		uniteMesure := &sql.NullString{}
-		if err = rows.Scan(&legume.ID, &legume.Nom, &legume.Variete, alimentSystemEchange, prix, uniteMesure, &legume.Stock); err != nil {
+		uniteMesure := &sql.NullInt64{}
+		if err = rows.Scan(&legume.ID, &legume.ImgUrl, &legume.Nom, &legume.Variete, systemEchange, prix, uniteMesure, &legume.Stock); err != nil {
 			return nil, &private.Error{
 				Location:   "db.farmer.GetPotager",
 				Line:       252,
@@ -259,13 +268,18 @@ func (fp *FarmerPsql) GetPotager(ctx context.Context, userID int, farmerID int) 
 				StatusCode: http.StatusInternalServerError,
 			}
 		}
+
+		for _, value := range systemEchange.Elements {
+			legume.SystemeEchange = append(legume.SystemeEchange, int(value.Int))
+		}
+
 		if prix.Valid {
 			legume.Prix = prix.Float64
 		}
 		if uniteMesure.Valid {
-			legume.UniteMesure = enums.UniteMesure(uniteMesure.String)
+			legume.UniteMesure = int(uniteMesure.Int64)
 		}
-		legume.SystemeEchange = ParsePGSystemeEchangeEnumArray(*alimentSystemEchange)
+
 		legumes = append(legumes, legume)
 	}
 	potager.Legumes = legumes
@@ -350,12 +364,9 @@ func (fp *FarmerPsql) GetNearestAliments(ctx context.Context, userID int, userCo
 	nearestAliments := []public.NearestAliment{}
 	for rows.Next() {
 		nearestAliment := public.NearestAliment{}
-		user := public.User{}
-		aliment := public.Aliment{}
 		prix := &sql.NullFloat64{}
-		uniteMesure := &sql.NullString{}
-		var alimentSystemEchange *string = new(string)
-		if err := rows.Scan(&aliment.ID, &aliment.ImgUrl, &aliment.Nom, &aliment.Variete, alimentSystemEchange, prix, uniteMesure, &aliment.Stock, &user.ID, &user.Username, &user.Commune, &user.Coordonnees); err != nil {
+		systemEchange := &pgtype.Int2Array{}
+		if err := rows.Scan(&nearestAliment.Aliment.ID, &nearestAliment.Aliment.ImgUrl, &nearestAliment.Aliment.Nom, &nearestAliment.Aliment.Variete, systemEchange, prix, &nearestAliment.Aliment.UniteMesure, &nearestAliment.Aliment.Stock, &nearestAliment.Farmer.ID, &nearestAliment.User.Username, &nearestAliment.Farmer.Commune, &nearestAliment.Farmer.Coordonnees); err != nil {
 			return nil, &private.Error{
 				Location:   "db.farmer.GetNearestAliments",
 				Line:       358,
@@ -365,15 +376,12 @@ func (fp *FarmerPsql) GetNearestAliments(ctx context.Context, userID int, userCo
 				StatusCode: http.StatusInternalServerError,
 			}
 		}
+		for _, value := range systemEchange.Elements {
+			nearestAliment.Aliment.SystemeEchange = append(nearestAliment.Aliment.SystemeEchange, int(value.Int))
+		}
 		if prix.Valid {
-			aliment.Prix = prix.Float64
+			nearestAliment.Aliment.Prix = prix.Float64
 		}
-		if uniteMesure.Valid {
-			aliment.UniteMesure = enums.UniteMesure(uniteMesure.String)
-		}
-		aliment.SystemeEchange = ParsePGSystemeEchangeEnumArray(*alimentSystemEchange)
-		nearestAliment.User = user
-		nearestAliment.Aliment = aliment
 		nearestAliments = append(nearestAliments, nearestAliment)
 	}
 	return nearestAliments, nil
@@ -391,8 +399,8 @@ func (fp *FarmerPsql) GetNearestPotagers(ctx context.Context, userID int, userCo
 				(SELECT NOT EXISTS(SELECT * FROM muted_potagers WHERE user_id = $1 AND farmer_id = uf.id))
 		)
 		SELECT
-			uf.id, u.username, uf.commune, ST_AsGeoJSON(uf.coordonnees)::json -> 'coordinates' coordonnees,
-			(SELECT EXISTS(SELECT * FROM favorite_potagers WHERE user_id = 2 AND farmer_id = uf.id)) favorite,
+			uf.id, uf.img_url, u.username, uf.commune, ST_AsGeoJSON(uf.coordonnees)::json -> 'coordinates' coordonnees,
+			(SELECT EXISTS(SELECT * FROM favorite_potagers WHERE user_id = $1 AND farmer_id = uf.id)) favorite,
 			(SELECT COUNT(*) FROM rel_fruits_farmers rff WHERE rff.farmer_id = u.id) fruitsCount,
 			(SELECT COUNT(*) FROM rel_graines_farmers rgf WHERE rgf.farmer_id = u.id) grainesCount,
 			(SELECT COUNT(*) FROM rel_legumes_farmers rlf WHERE rlf.farmer_id = u.id) legumesCount
@@ -427,8 +435,11 @@ func (fp *FarmerPsql) GetNearestPotagers(ctx context.Context, userID int, userCo
 	nearestPotagers := []public.NearestPotager{}
 	for rows.Next() {
 		potager := public.NearestPotager{}
-		user := public.User{}
-		if err := rows.Scan(&user.ID, &user.Username, &potager.Commune, &potager.Coordonnees, &potager.Favorite, &potager.FruitsCount, &potager.GrainesCount, &potager.LegumesCount); err != nil {
+
+		if err := rows.Scan(
+			&potager.Farmer.ID, &potager.Farmer.ImgUrl, &potager.User.Username,
+			&potager.Farmer.Commune, &potager.Farmer.Coordonnees, &potager.Farmer.Favorite,
+			&potager.FruitsCount, &potager.GrainesCount, &potager.LegumesCount); err != nil {
 			return nil, &private.Error{
 				Location:   "db.farmer.GetNearestPotagers",
 				Line:       431,
@@ -438,7 +449,7 @@ func (fp *FarmerPsql) GetNearestPotagers(ctx context.Context, userID int, userCo
 				StatusCode: http.StatusInternalServerError,
 			}
 		}
-		potager.User = user
+
 		nearestPotagers = append(nearestPotagers, potager)
 	}
 	rows.Close()

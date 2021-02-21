@@ -5,12 +5,23 @@ import (
 	"net/http"
 	"npp_backend/entity/private"
 	"npp_backend/l10n/translate"
+	"strings"
 )
 
 func (pp *PersonPsql) AddFavoritePotager(ctx context.Context, userId int, farmerId int) *private.Error {
 	if _, err := pp.db.Exec(ctx, `
 		INSERT INTO favorite_potagers(user_id, farmer_id) VALUES ($1, $2);
 	`, userId, farmerId); err != nil {
+		if strings.Contains(err.Error(), "favorite_potagers_unique_idx") {
+			return &private.Error{
+				Location:   "db.person.AddFavoritePotager",
+				Line:       16,
+				Err:        err,
+				TranslKey:  translate.KeyFarmerAlreadyFavorite,
+				ErrorCode:  1,
+				StatusCode: http.StatusConflict,
+			}
+		}
 		return &private.Error{
 			Location:   "db.person.AddFavoritePotager",
 			Line:       13,
